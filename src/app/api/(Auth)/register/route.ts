@@ -3,6 +3,7 @@ import apiError from "@/utils/apiError";
 import { z } from "zod";
 import User from "@/models/user";
 import dbConnect from "@/lib/dbConnect";
+import Otp from "@/models/otp";
 
 const signupSchema = z.object({
   mobileNumber: z.string().length(10),
@@ -62,6 +63,7 @@ export async function POST(req: Request) {
     isVerified:true,
     avatar,
   });
+  await Otp.findOneAndDelete({mobileNumber})
   
   return apiResponse("user created successfully",user,200)
 }
