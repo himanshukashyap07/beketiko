@@ -20,8 +20,7 @@ export const authOption: NextAuthOptions = {
                     if (!credentials?.identifier || !credentials?.password) {
                         throw new Error("Credentials are required");
                     }
-                    console.log(credentials.identifier);
-                    console.log(typeof credentials.identifier);
+                    
                     
                     const user = await User.findOne(
                         {
@@ -32,7 +31,6 @@ export const authOption: NextAuthOptions = {
                         }
                     )
 
-                    console.log(user);
                     
                     if (!user) {
                         throw new Error("user not found")

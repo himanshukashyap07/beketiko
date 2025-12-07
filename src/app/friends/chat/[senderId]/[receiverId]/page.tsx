@@ -12,6 +12,7 @@ interface Message {
     reciver: string;
     isDelete: boolean;
     createdAt: string;
+    updatedAt: string;
 }
 
 let socket: Socket;
@@ -20,37 +21,74 @@ export default function Page() {
     const params = useParams();
     const senderId = params.senderId as string;
     const receiverId = params.receiverId as string;
-
     const [messages, setMessages] = useState<Message[]>([]);
     const [text, setText] = useState("");
     const [editingId, setEditingId] = useState<string | null>(null);
     const [typingUser, setTypingUser] = useState<string | null>(null);
 
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const msgContainerRef = useRef<HTMLDivElement>(null);
 
     const room = [senderId, receiverId].sort().join("_");
-  
 
-    // ------------------------------------------
-    // FETCH OLD MESSAGES
-    // ------------------------------------------
-    const fetchMessages = async () => {
+    // ---------------------------------------------------
+    // FETCH PAGINATED MESSAGES
+    // ---------------------------------------------------
+    const fetchMessages = async (pageNumber: number) => {
         const res = await axios.get(
-            `https://chatbackend-2frf.onrender.com/api/msg/${senderId}/${receiverId}`
+            `https://chatbackend-2frf.onrender.com/api/msg/${senderId}/${receiverId}?page=${pageNumber}&limit=30`
         );
-        setMessages(res.data.data);
+
+        const data = res.data.data;
+
+        if (data.length === 0) {
+            setHasMore(false);
+            return;
+        }
+
+        // On page 1 → replace messages
+        if (pageNumber === 1) {
+            setMessages(data);
+        } else {
+            // On next pages → prepend older messages
+            setMessages((prev) => [...data, ...prev]);
+        }
     };
 
-    // ------------------------------------------
-    // SEND OR UPDATE MESSAGE
-    // ------------------------------------------
+    // ---------------------------------------------------
+    // LOAD MORE WHEN SCROLL TOP
+    // ---------------------------------------------------
+    const handleScroll = () => {
+        const container = msgContainerRef.current;
+        if (!container || !hasMore) return;
+
+        if (container.scrollTop === 0) {
+            const nextPage = page + 1;
+            setPage(nextPage);
+
+            const oldHeight = container.scrollHeight;
+
+            fetchMessages(nextPage).then(() => {
+                setTimeout(() => {
+                    container.scrollTop = container.scrollHeight - oldHeight;
+                }, 80);
+            });
+        }
+    };
+
+    // ---------------------------------------------------
+    // SEND/UPDATE MESSAGE
+    // ---------------------------------------------------
     const sendMessage = async () => {
         if (!text.trim()) return;
 
         if (editingId) {
-            await axios.put(`https://chatbackend-2frf.onrender.com/api/msg/${editingId}`, {
-                content: text,
-            });
+            await axios.put(
+                `https://chatbackend-2frf.onrender.com/api/msg/${editingId}`,
+                { content: text }
+            );
             setEditingId(null);
             setText("");
             return;
@@ -65,22 +103,22 @@ export default function Page() {
         setText("");
     };
 
-    // ------------------------------------------
+    // ---------------------------------------------------
     // DELETE MESSAGE
-    // ------------------------------------------
+    // ---------------------------------------------------
     const deleteMsg = async (id: string) => {
         await axios.delete(`https://chatbackend-2frf.onrender.com/api/msg/${id}`);
     };
 
-    // ------------------------------------------
-    // SOCKET CONNECTION
-    // ------------------------------------------
+    // ---------------------------------------------------
+    // SOCKET SETUP
+    // ---------------------------------------------------
     useEffect(() => {
-        socket = io("https://chatbackend-2frf.onrender.com/"); 
+        socket = io("https://chatbackend-2frf.onrender.com/");
         socket.emit("join", senderId);
         socket.emit("join-room", { room });
 
-        fetchMessages();
+        fetchMessages(1); // Load latest 15
 
         socket.on("new-message", (msg: Message) => {
             if (
@@ -114,9 +152,11 @@ export default function Page() {
         return () => {
             socket.disconnect();
         };
-    }, [senderId, receiverId,messages]);
+    }, [senderId, receiverId, messages]);
 
-    // typing emit
+    // ---------------------------------------------------
+    // TYPING INDICATOR
+    // ---------------------------------------------------
     useEffect(() => {
         if (!text) {
             socket.emit("stop-typing", { room, sender: senderId });
@@ -132,56 +172,50 @@ export default function Page() {
         return () => clearTimeout(timeout);
     }, [text]);
 
-    // Auto-scroll
+    // ---------------------------------------------------
+    // AUTO SCROLL FOR NEW MESSAGES ONLY
+    // ---------------------------------------------------
     useEffect(() => {
         scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+    }, [messages.length]);
 
-    // ------------------------------------------
+    // ---------------------------------------------------
     // UI
-    // ------------------------------------------
+    // ---------------------------------------------------
     return (
         <div className="h-screen flex flex-col text-black bg-gray-100">
-            {/* HEADER */}
             <div className="p-4 bg-blue-600 text-white text-lg font-semibold">
                 Chat with {receiverId}
             </div>
 
-            {/* TYPING INDICATOR */}
-            {typingUser && (
-                <div className="px-4 py-1 text-sm text-gray-600">
-                    {typingUser} is typing...
-                </div>
-            )}
-
             {/* MESSAGES */}
-            <div className="flex-1 overflow-y-auto text-black p-4 space-y-3">
+            <div
+                ref={msgContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto text-black p-4 space-y-3"
+            >
                 {messages.map((msg) => {
                     const isMe = msg.sender === senderId;
-
                     return (
                         <div
                             key={msg._id}
-                            className={`flex ${
-                                isMe ? "justify-end" : "justify-start"
-                            }`}
+                            className={`flex ${isMe ? "justify-end" : "justify-start"}`}
                         >
                             <div
-                                className={`p-3 max-w-xs rounded-lg ${
-                                    isMe
-                                        ? "bg-blue-500 text-white rounded-br-none"
-                                        : "bg-gray-300 text-black rounded-bl-none"
-                                }`}
+                                className={`p-3 max-w-xs rounded-lg ${isMe
+                                    ? "bg-blue-500 text-white rounded-br-none"
+                                    : "bg-gray-300 text-black rounded-bl-none"
+                                    }`}
                             >
                                 <p>
-                                    {msg.isDelete
-                                        ? "Message deleted"
-                                        : msg.content}
+                                    {msg.isDelete ? "Message deleted" : msg.content}
                                 </p>
+
 
                                 {!msg.isDelete && isMe && (
                                     <div className="flex gap-2 mt-1 text-xs opacity-90">
                                         <button
+                                            className="bg-green-400 px-2 rounded-full"
                                             onClick={() => {
                                                 setEditingId(msg._id);
                                                 setText(msg.content);
@@ -190,18 +224,43 @@ export default function Page() {
                                             Edit
                                         </button>
                                         <button
-                                            onClick={() => deleteMsg(msg._id)}
-                                        >
+                                            className="bg-red-400 px-2 rounded-full"
+                                            onClick={() => deleteMsg(msg._id)}>
                                             Delete
                                         </button>
                                     </div>
                                 )}
+                                <div>
+                                    {
+                                        !msg.isDelete && (
+                                            <div className="flex justify-between">
+                                                <span className="text-xs">
+                                                    {
+                                                        (new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", }) !== new Date(msg.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", })) ? "Edited" : ""
+                                                    }
+                                                </span>
+                                                <span className="text-xs">
+                                                    {new Date(msg.createdAt).toLocaleTimeString([], {
+                                                        hour: "2-digit",
+                                                        minute: "2-digit",
+                                                    })}
+                                                </span>
+                                            </div>
+                                        )
+                                    }
+                                </div>
                             </div>
                         </div>
                     );
                 })}
 
+                {typingUser && (
+                    <div className="px-4 py-1 text-sm text-gray-600">
+                        {typingUser} is typing...
+                    </div>
+                )}
                 <div ref={scrollRef}></div>
+
             </div>
 
             {/* INPUT */}
@@ -210,6 +269,12 @@ export default function Page() {
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     placeholder="Type a message..."
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                            e.preventDefault();
+                            sendMessage();
+                        }
+                    }}
                     className="flex-1 p-2 border rounded-lg"
                 />
 
@@ -222,4 +287,6 @@ export default function Page() {
             </div>
         </div>
     );
+
+
 }

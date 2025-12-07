@@ -6,13 +6,15 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { useSession } from "next-auth/react";
 import Header from "@/components/DashboardHader";
+import { FiLoader } from "react-icons/fi";
 
 export default function Page() {
   const [mobile, setMobile] = useState("");
   const [foundUser, setFoundUser] = useState<any>(null);
   const router = useRouter();
   const [userId, setUserId] = useState()
-
+  const [loading,setLoading] = useState(false)
+  
   const { data: session } = useSession()
   useEffect(() => {
 
@@ -57,7 +59,12 @@ export default function Page() {
         >
           Search User
         </button>
-
+        {
+          loading
+          ?
+          <FiLoader className="mx-auto animate-spin text-3xl sm:text-4xl text-white" />
+          : ""
+        }
         {foundUser && (
           <div className="mt-4 p-4 border text-black rounded bg-gray-100">
             <h2 className="font-semibold">user Found: {foundUser.fullName}</h2>

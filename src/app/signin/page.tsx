@@ -3,17 +3,20 @@
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { FiLoader } from "react-icons/fi";
 import { toast } from "react-toastify";
 
 export default function page() {
   const [identifier, serIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
+  const [loading,setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
    try {
+    setLoading(true)
      const res = await signIn("credentials", {
        identifier,
        password,
@@ -24,12 +27,13 @@ export default function page() {
       toast.error(res.error)
       return;
      }
+     setLoading(false)
      
      toast.success("User logged in successfully");
       router.replace("/friends");
      
    } catch (error:any) {
-    console.log(error);
+    setLoading(false)
     toast.error(error)
     
    }
@@ -43,9 +47,14 @@ export default function page() {
         onSubmit={handleSubmit}
         className="w-96 backdrop-blur-xl bg-white/30 border border-white/40 shadow-2xl p-8 rounded-2xl text-white"
       >
-        <h2 className="text-3xl font-extrabold text-center mb-8 drop-shadow-lg">
+        {
+          loading
+          ?
+          <FiLoader className="mx-auto animate-spin text-3xl sm:text-4xl text-white" />
+          :<h2 className="text-3xl font-extrabold text-center mb-8 drop-shadow-lg">
           Welcome Back
         </h2>
+        }
 
         {/* Identifier Input */}
         <label className="block mb-2 font-semibold tracking-wide">
