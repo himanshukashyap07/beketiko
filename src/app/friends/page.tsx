@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 import { useSession } from "next-auth/react";
 import Header from "@/components/DashboardHader";
 import { FiLoader } from "react-icons/fi";
+import Image from "next/image";
 
 export default function Page() {
   const [mobile, setMobile] = useState("");
@@ -14,21 +15,32 @@ export default function Page() {
   const router = useRouter();
   const [userId, setUserId] = useState()
   const [loading,setLoading] = useState(false)
-  
+  const [users,setUsers] = useState([])
   const { data: session } = useSession()
   useEffect(() => {
 
     setUserId(session?.user?.id)
   })
+  useEffect(()=>{
+    async function getUser(){
+      setLoading(true)
+      const users = await axios.get("/api/allUser")
+      setUsers(users.data.message)
+      setLoading(false)
+    }
+    getUser()
+  },[])
 
   const handleSearch = async () => {
     if (!mobile) return;
 
     try {
+      setLoading(true)
       const res = await axios.get(`/api/find-friend/${mobile}`);
       setFoundUser(res.data.data);
-
+      setLoading(false)
     } catch (err) {
+      setLoading(false)
       toast.error("User not found");
       setFoundUser(null);
     }
@@ -36,8 +48,6 @@ export default function Page() {
 
   const openChat = () => {
     const loggedInUserId = userId;
-
-
     router.replace(`/friends/chat/${loggedInUserId}/${foundUser._id}`);
   };
 
@@ -45,7 +55,7 @@ export default function Page() {
     <div>
       <Header />
       <div className="p-6 max-w-md mx-auto">
-        <h1 className="text-xl font-bold mb-4">Search by Mobile</h1>
+        <h1 className="text-xl font-bold mb-4 text-center">Search by Mobile</h1>
         <input
           className="w-full p-2 border rounded"
           placeholder="Enter mobile number"
@@ -62,7 +72,7 @@ export default function Page() {
         {
           loading
           ?
-          <FiLoader className="mx-auto animate-spin text-3xl sm:text-4xl text-white" />
+          <FiLoader className="mx-auto animate-spin text-3xl sm:text-4xl text-blue" />
           : ""
         }
         {foundUser && (
@@ -77,6 +87,27 @@ export default function Page() {
             </button>
           </div>
         )}
+        <div className="mt-16">
+          {
+            users && users.map((user:any,index)=>(
+              <button 
+              onClick={()=>router.replace(`/friends/chat/${userId}/${user._id}`)}
+              className="mt-3 w-full flex items-center rounded-xl bg-sky-300 cursor-pointer text-white p-2" key={index}
+              >
+                <Image
+                src={user.avatar}
+                alt="user-image"
+                width="60"
+                height="60"
+                className="rounded-full"
+                ></Image>
+                <span className="ml-20 text-black font-bold">
+                  {user.fullName.toUpperCase()}
+                </span>
+              </button>
+            ))
+          }
+        </div>
       </div>
     </div>
   );
