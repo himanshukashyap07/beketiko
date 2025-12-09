@@ -21,15 +21,28 @@ export default function Page() {
 
     setUserId(session?.user?.id)
   })
-  useEffect(()=>{
-    async function getUser(){
-      setLoading(true)
-      const users = await axios.get("/api/allUser")
-      setUsers(users.data.message)
-      setLoading(false)
+
+
+ //get user only
+useEffect(()=>{
+    if (!userId) return;
+    
+    async function getConnectedUsers(){
+      try {
+        setLoading(true)
+  
+        const res = await axios.get(`/api/chat-users`)
+        setUsers(res.data.users)
+        setLoading(false)
+      } catch (error) {
+        setLoading(false)
+        toast.error("error finding in user")
+        return;
+      }
+      
     }
-    getUser()
-  },[])
+    getConnectedUsers()
+  },[userId])
 
   const handleSearch = async () => {
     if (!mobile) return;
