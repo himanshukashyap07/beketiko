@@ -24,6 +24,7 @@ export default function page() {
      });
      console.log(res);
      if (res?.error) {
+       setLoading(false)
       toast.error(res.error)
       return;
      }
@@ -58,7 +59,7 @@ export default function page() {
 
         {/* Identifier Input */}
         <label className="block mb-2 font-semibold tracking-wide">
-          Email / Username / Number
+          Username / Number
         </label>
         <input
           type="text"
@@ -91,10 +92,7 @@ export default function page() {
           Login
         </button>
 
-        {/* Extra Bottom Text */}
-        <p className="text-center mt-4 text-white/90 text-sm">
-          Secure • Fast • Beautiful UI ✨
-        </p>
+        
       </form>
     </div>
   );

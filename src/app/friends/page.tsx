@@ -99,7 +99,7 @@ export default function Page() {
                 alt="user-image"
                 width="60"
                 height="60"
-                className="rounded-full"
+                className="rounded-full w-auto h-auto"
                 ></Image>
                 <span className="ml-20 text-black font-bold">
                   {user.fullName.toUpperCase()}

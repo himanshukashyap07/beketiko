@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 export default function Header() {
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
-  console.log(session);
   const router = useRouter()
 
   return (

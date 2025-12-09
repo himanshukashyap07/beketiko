@@ -27,13 +27,13 @@ export default function Page() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [typingUser, setTypingUser] = useState<string | null>(null);
 
+    const [onlineUsers, setOnlineUsers] = useState<string[]>([])
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
+    const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-    const scrollRef = useRef<HTMLDivElement>(null);
     const msgContainerRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
-    const [isReceiverOnline, setIsReceiverOnline] = useState(false);
     const room = [senderId, receiverId].sort().join("_");
 
     // ---------------------------------------------------
@@ -92,12 +92,21 @@ export default function Page() {
         s.on("connect", () => {
             s.emit("join", senderId);
             s.emit("join-room", { room });
+            s.emit("join-user", receiverId)
         });
 
         fetchMessages(1);
 
+        return () => {
+            s.disconnect(); 
+        };
+    }, [senderId, receiverId, room]);
+
+    //all emit and on event
+    useEffect(() => {
+        if (!socket) return;
         // New Message
-        s.on("new-message", (msg: Message) => {
+        socket.on("new-message", (msg: Message) => {
             if (
                 (msg.sender === senderId && msg.reciver === receiverId) ||
                 (msg.sender === receiverId && msg.reciver === senderId)
@@ -107,14 +116,19 @@ export default function Page() {
         });
 
         // Update
-        s.on("message-updated", (msg: Message) => {
+        socket.on("message-updated", (msg: Message) => {
+            console.log("message updated");
+            console.log(messages);
+
             setMessages((prev) =>
                 prev.map((m) => (m._id === msg._id ? msg : m))
             );
+            console.log(messages);
+
         });
 
         // Delete
-        s.on("message-deleted", (msg: Message) => {
+        socket.on("message-deleted", (msg: Message) => {
             setMessages((prev) =>
                 prev.map((m) =>
                     m._id === msg._id ? { ...m, isDelete: true } : m
@@ -123,25 +137,19 @@ export default function Page() {
         });
 
         // Typing
-        s.on("typing", (sender) => {
+        socket.on("typing", (sender) => {
             if (sender !== senderId) setTypingUser(sender);
         });
 
-        s.on("stop-typing", () => setTypingUser(null));
+        socket.on("stop-typing", () => setTypingUser(null));
 
         //online indicator
-        s.on("user-online", (userId) => {
-            if (userId === receiverId) setIsReceiverOnline(true);
+        socket.on("online-users", (users) => {
+            setOnlineUsers(users);
         });
 
-        s.on("user-offline", (userId) => {
-            if (userId === receiverId) setIsReceiverOnline(false);
-        });
 
-        return () => {
-            s.disconnect(); // <-- correct cleanup
-        };
-    }, [senderId, receiverId, room,messages]);
+    }, [socket, room, senderId, receiverId])
 
     // ---------------------------------------------------
     // TYPING INDICATOR
@@ -166,48 +174,38 @@ export default function Page() {
     // ---------------------------------------------------
     // AUTO SCROLL WHEN AT BOTTOM
     // ---------------------------------------------------
-    useEffect(() => {
-        const container = msgContainerRef.current;
-        if (!container) return;
-
-        const isAtBottom =
-            container.scrollHeight -
-            container.scrollTop -
-            container.clientHeight <
-            50;
-
-        if (isAtBottom) {
-            scrollRef.current?.scrollIntoView({ behavior: "auto" });
+     useEffect(() => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({
+                behavior: "smooth", 
+            });
         }
     }, [messages]);
 
     // ---------------------------------------------------
     // SEND / UPDATE MESSAGE
     // ---------------------------------------------------
-    const sendMessage = async () => {
+     const sendMessage = async () => {
         if (!text.trim()) return;
 
         if (editingId) {
-            await axios.put(
-                `https://chatbackend-2frf.onrender.com/api/msg/${editingId}`,
-                { content: text }
-            );
+            socket?.emit("edit-message", { room, msgId: editingId, newContent: text })
             setEditingId(null);
             setText("");
             return;
         }
-
-        await axios.post("https://chatbackend-2frf.onrender.com/api/msg", {
+        socket?.emit("send-message", {
+            room,
             content: text,
             sender: senderId,
-            reciver: receiverId,
-        });
+            reciver: receiverId
+        })
 
         setText("");
     };
 
     const deleteMsg = async (id: string) => {
-        await axios.delete(`https://chatbackend-2frf.onrender.com/api/msg/${id}`);
+        socket?.emit("delete-message", { room, msgId: id })
     };
 
     // ---------------------------------------------------
@@ -222,11 +220,6 @@ export default function Page() {
 
                 <div className="flex items-center gap-2">
                     <span>Chat with {receiverId}</span>
-
-                    <span
-                        className={`w-3 h-3 rounded-full ${isReceiverOnline ? "bg-green-400" : "bg-gray-400"
-                            }`}
-                    ></span>
                 </div>
             </div>
 
@@ -297,9 +290,7 @@ export default function Page() {
                         </div>
                     );
                 })}
-
-
-                <div ref={scrollRef}></div>
+                <div ref={messagesEndRef} />
             </div>
             {typingUser && (
                 <div className="px-4 py-1 text-sm text-gray-600">
@@ -307,10 +298,11 @@ export default function Page() {
                 </div>
             )}
             <div className="p-4 bg-white flex items-center gap-2 border-t">
-                <span
-                        className={`w-3 h-3 rounded-full ${isReceiverOnline ? "bg-green-400" : "bg-gray-400"
-                            }`}
-                    ></span>
+                {onlineUsers && onlineUsers.includes(receiverId) ? (
+                    <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+                ) : (
+                    <span className="w-3 h-3 bg-gray-400 rounded-full"></span>
+                )}
                 <input
                     value={text}
                     onChange={(e) => setText(e.target.value)}
