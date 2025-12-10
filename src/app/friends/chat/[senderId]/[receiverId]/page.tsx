@@ -42,7 +42,7 @@ export default function Page() {
     // ---------------------------------------------------
     const fetchMessages = async (pageNumber: number) => {
         const res = await axios.get(
-            `https://chatbackend-2frf.onrender.com/api/msg/${senderId}/${receiverId}?page=${pageNumber}&limit=30`
+            `https://chatbackend-2frf.onrender.com/api/msg/${senderId}/${receiverId}?page=${pageNumber}&limit=10`
         );
 
         const data = res.data.data;
