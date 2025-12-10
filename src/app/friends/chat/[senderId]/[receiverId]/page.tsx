@@ -5,6 +5,7 @@ import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
 import io, { Socket } from "socket.io-client";
 import { FaBackward } from "react-icons/fa";
+import { signOut } from "next-auth/react";
 
 interface Message {
     _id: string;
@@ -213,14 +214,19 @@ export default function Page() {
     // ---------------------------------------------------
     return (
         <div className="h-screen flex flex-col text-black bg-gray-100">
-            <div className="p-4 bg-blue-600 text-white text-lg font-semibold flex items-center gap-4">
+            <div className="p-4 bg-blue-600 text-white text-lg font-semibold flex justify-between px-10 items-center gap-4">
                 <button onClick={() => router.replace("/friends")}>
                     <FaBackward className="text-xl" />
                 </button>
 
-                <div className="flex items-center gap-2">
-                    <span>Chat with {receiverId}</span>
+                <div>
+                    <button className="bg-orange-600 p-2 opacity-80 text-shadow-amber-600 border border-black rounded-lg" onClick={()=>signOut()}>
+                        click me
+                    </button>
                 </div>
+                {/* <div className="flex items-center gap-2">
+                    <span>Chat with {receiverId}</span>
+                </div> */}
             </div>
 
             <div
