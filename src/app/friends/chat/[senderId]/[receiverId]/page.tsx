@@ -425,9 +425,10 @@ export default function Page() {
                 </div>
                 <div className="flex items-center gap-2 ">
                     <div>
+
                         {onlineUsers && onlineUsers.includes(receiverId) ? (
-                            <span className="bg-green-500 w-px h-px rounded-full">
-                            </span>
+                            <div className="bg-green-500 w-2 h-2 rounded-full">.
+                            </div>
                         ) : (
                             <span></span>
                         )}
@@ -475,6 +476,6 @@ export default function Page() {
                     <EmojiPicker onEmojiClick={(emoji) => setText((prev) => prev + emoji.emoji)} skinTonesDisabled lazyLoadEmojis={false} searchDisabled open={showEmoji} />
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
