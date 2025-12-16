@@ -13,6 +13,7 @@ import { MdOutlineEmojiEmotions } from "react-icons/md";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { IoSend } from "react-icons/io5";
 import { signOut } from "next-auth/react";
+import { getFileHash } from "@/lib/getFileHash";
 interface Message {
     _id: string;
     content: string;
@@ -28,6 +29,7 @@ interface Message {
         name: string,
         size: number,
         fileType: string,
+        hash: string
     };
 }
 
@@ -217,22 +219,39 @@ export default function Page() {
 
 
         if (selectedFile?.file) {
-            const formData = new FormData();
-            formData.append("file", selectedFile.file);
+            const hash = await getFileHash(selectedFile.file);
+            console.log(hash);
 
-            const res = await axios.post("/api/upload-file", formData)
-            if (!res) {
-                toast.error("error in sending file")
+            const checkRes = await axios.post("/api/check-file", { hash })
+            console.log(checkRes.data);
+
+            if (checkRes.data.exists) {
+                console.log("start");
+
+                fileData = checkRes.data.file;
+                console.log("previous file used");
+
+            } else {
+                const formData = new FormData();
+                formData.append("file", selectedFile.file);
+
+                const res = await axios.post("/api/upload-file", formData)
+                if (!res) {
+                    toast.error("error in sending file")
+                }
+                console.log("save file response", res.data.uploadResponse.url)
+
+                fileData = {
+                    url: res.data.uploadResponse.url,
+                    type: selectedFile.type,
+                    name: selectedFile.file.name,
+                    size: selectedFile.file.size,
+                    fileType: selectedFile.file.type,
+                    hash
+                };
             }
-            console.log("save file response", res.data.uploadResponse.url)
 
-            fileData = {
-                url: res.data.uploadResponse.url,
-                type: selectedFile.type,
-                name: selectedFile.file.name,
-                size: selectedFile.file.size,
-                fileType: selectedFile.file.type,
-            };
+
         }
 
         if (editingId) {
@@ -338,7 +357,7 @@ export default function Page() {
                                 <p>{msg.isDelete ? "Message deleted" : msg.content}</p>
                                 {/* show files */}
                                 {
-                                    !msg.isDelete &&    
+                                    !msg.isDelete &&
                                     <MediaRenderer file={msg.file} />
                                 }
 
@@ -406,6 +425,12 @@ export default function Page() {
                 </div>
                 <div className="flex items-center gap-2 ">
                     <div>
+                        {onlineUsers && onlineUsers.includes(receiverId) ? (
+                            <span className="bg-green-500 w-px h-px rounded-full">
+                            </span>
+                        ) : (
+                            <span></span>
+                        )}
 
                         <MdOutlineEmojiEmotions onClick={() => setShowEmoji(!showEmoji)} className="text-2xl" />
                     </div>

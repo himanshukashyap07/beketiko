@@ -12,6 +12,7 @@ export interface IMsg extends Document {
       name: string,
       size: number,
       fileType: string,
+      hash:string,
   };
 }
 const msgSchema:Schema = new mongoose.Schema<IMsg>(
@@ -43,6 +44,7 @@ const msgSchema:Schema = new mongoose.Schema<IMsg>(
       name: {type:String},
       size: {type:Number},
       fileType: {type:String},
+      hash:{type:String}
     }
   },
   { timestamps: true }
