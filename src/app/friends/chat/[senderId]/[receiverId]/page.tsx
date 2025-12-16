@@ -238,6 +238,7 @@ export default function Page() {
         if (editingId) {
             socket?.emit("edit-message", { room, msgId: editingId, newContent: text })
             setEditingId(null);
+            setSending(false)
             setText("");
             return;
         }
@@ -295,7 +296,7 @@ export default function Page() {
     // ---------------------------------------------------
     return (
         <div className="h-screen flex flex-col text-black bg-gray-100">
-            <div className="p-4 bg-blue-600 fixed w-screen text-white text-lg font-semibold flex justify-between px-10 items-center gap-4">
+            <div className="p-4 bg-blue-600 fixed w-screen text-white z-50 text-lg font-semibold flex justify-between px-10 items-center gap-4">
                 <button onClick={() => router.replace("/friends")}>
                     <IoMdArrowRoundBack className="text-xl" />
                 </button>
