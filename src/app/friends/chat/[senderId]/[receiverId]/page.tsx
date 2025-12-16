@@ -4,9 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
 import io, { Socket } from "socket.io-client";
-import { FaBackward } from "react-icons/fa";
+import { FaFile } from "react-icons/fa";
+import { toast } from "react-toastify";
+import MediaRenderer from "@/components/MediaRender";
+import { FiLoader } from "react-icons/fi";
+import EmojiPicker from 'emoji-picker-react';
+import { MdOutlineEmojiEmotions } from "react-icons/md";
+import { IoMdArrowRoundBack } from "react-icons/io";
+import { IoSend } from "react-icons/io5";
 import { signOut } from "next-auth/react";
-
 interface Message {
     _id: string;
     content: string;
@@ -15,7 +21,16 @@ interface Message {
     isDelete: boolean;
     createdAt: string;
     updatedAt: string;
+    isSeen: boolean;
+    file: {
+        type: string,
+        url: string,
+        name: string,
+        size: number,
+        fileType: string,
+    };
 }
+
 
 export default function Page() {
     const params = useParams();
@@ -32,10 +47,16 @@ export default function Page() {
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
+    const [sending, setSending] = useState(false)
+    const [showEmoji, setShowEmoji] = useState(false)
     const msgContainerRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
     const room = [senderId, receiverId].sort().join("_");
+    const MAX_FILE_SIZE = 10 * 1024 * 1024 //10MB
+    const [selectedFile, setSelectedFile] = useState<{
+        file: File;
+        type: "image" | "video" | "audio" | "document";
+    } | null>(null);
 
     // ---------------------------------------------------
     // FETCH PAGINATED MESSAGES
@@ -99,7 +120,7 @@ export default function Page() {
         fetchMessages(1);
 
         return () => {
-            s.disconnect(); 
+            s.disconnect();
         };
     }, [senderId, receiverId, room]);
 
@@ -175,10 +196,10 @@ export default function Page() {
     // ---------------------------------------------------
     // AUTO SCROLL WHEN AT BOTTOM
     // ---------------------------------------------------
-     useEffect(() => {
+    useEffect(() => {
         if (messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({
-                behavior: "smooth", 
+                behavior: "smooth",
             });
         }
     }, [messages]);
@@ -186,8 +207,33 @@ export default function Page() {
     // ---------------------------------------------------
     // SEND / UPDATE MESSAGE
     // ---------------------------------------------------
-     const sendMessage = async () => {
-        if (!text.trim()) return;
+    const sendMessage = async () => {
+        if (sending) return;
+        if (!text.trim() && !selectedFile) return;
+
+
+        setSending(true)
+        let fileData = null;
+
+
+        if (selectedFile?.file) {
+            const formData = new FormData();
+            formData.append("file", selectedFile.file);
+
+            const res = await axios.post("/api/upload-file", formData)
+            if (!res) {
+                toast.error("error in sending file")
+            }
+            console.log("save file response", res.data.uploadResponse.url)
+
+            fileData = {
+                url: res.data.uploadResponse.url,
+                type: selectedFile.type,
+                name: selectedFile.file.name,
+                size: selectedFile.file.size,
+                fileType: selectedFile.file.type,
+            };
+        }
 
         if (editingId) {
             socket?.emit("edit-message", { room, msgId: editingId, newContent: text })
@@ -197,36 +243,77 @@ export default function Page() {
         }
         socket?.emit("send-message", {
             room,
-            content: text,
+            content: text.trim(),
+            fileData,
             sender: senderId,
             reciver: receiverId
         })
-
+        setSending(false)
+        setSelectedFile(null)
         setText("");
     };
 
     const deleteMsg = async (id: string) => {
         socket?.emit("delete-message", { room, msgId: id })
     };
+    //handle file changge
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        console.log(file);
+
+        if (!file) return;
+
+        if (file.size > MAX_FILE_SIZE) {
+            toast.error("file size is exceed limit 10MB")
+            e.target.value = "";
+            return;
+        }
+
+        const fileType = file.type.startsWith("image/")
+            ? "image"
+            : file.type.startsWith("video/")
+                ? "video"
+                : file.type.startsWith("audio/")
+                    ? "audio"
+                    : "document";
+
+        console.log(fileType);
+
+
+        setSelectedFile({
+            file,
+            type: fileType,
+        });
+
+
+        // ✅ allow re-selecting same file again
+        e.target.value = "";
+    }
 
     // ---------------------------------------------------
     // UI STARTS
     // ---------------------------------------------------
     return (
         <div className="h-screen flex flex-col text-black bg-gray-100">
-            <div className="p-4 bg-blue-600 text-white text-lg font-semibold flex justify-between px-10 items-center gap-4">
+            <div className="p-4 bg-blue-600 fixed w-screen text-white text-lg font-semibold flex justify-between px-10 items-center gap-4">
                 <button onClick={() => router.replace("/friends")}>
-                    <FaBackward className="text-xl" />
+                    <IoMdArrowRoundBack className="text-xl" />
                 </button>
-
+                <div className="flex  flex-col gap-2">
+                    <span>Chat with {receiverId.slice(1, 8)}</span>
+                    {onlineUsers && onlineUsers.includes(receiverId) ? (
+                        <span className="px-2 py-0.5 text-xs w-fit font-semibold text-green-700 bg-green-100 rounded-full">
+                            Online
+                        </span>
+                    ) : (
+                        <span></span>
+                    )}
+                </div>
                 <div>
-                    <button className="bg-orange-600 p-2 opacity-80 text-shadow-amber-600 border border-black rounded-lg" onClick={()=>signOut()}>
+                    <button className="bg-orange-600 p-2 opacity-80 text-shadow-amber-600 border border-black rounded-lg" onClick={() => signOut()}>
                         click me
                     </button>
                 </div>
-                {/* <div className="flex items-center gap-2">
-                    <span>Chat with {receiverId}</span>
-                </div> */}
             </div>
 
             <div
@@ -248,6 +335,11 @@ export default function Page() {
                                     }`}
                             >
                                 <p>{msg.isDelete ? "Message deleted" : msg.content}</p>
+                                {/* show files */}
+                                {
+                                    !msg.isDelete &&    
+                                    <MediaRenderer file={msg.file} />
+                                }
 
                                 {!msg.isDelete && isMe && (
                                     <div className="flex gap-2 mt-1 text-xs opacity-90">
@@ -303,31 +395,59 @@ export default function Page() {
                     {typingUser} is typing...
                 </div>
             )}
-            <div className="p-4 bg-white flex items-center gap-2 border-t">
-                {onlineUsers && onlineUsers.includes(receiverId) ? (
-                    <span className="w-3 h-3 bg-green-500 rounded-full"></span>
-                ) : (
-                    <span className="w-3 h-3 bg-gray-400 rounded-full"></span>
-                )}
-                <input
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder="Type a message..."
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                            e.preventDefault();
-                            sendMessage();
-                        }
-                    }}
-                    className="flex-1 p-2 border rounded-lg"
-                />
+            <div className="bg-white flex gap-2 flex-col border-t p-2">
+                <div>
+                    {
+                        selectedFile && <div className={`bg-gray-600 w-fit p-2 text-gray-200 border rounded-sm`}>
+                            {selectedFile.file.name}
+                        </div>
+                    }
+                </div>
+                <div className="flex items-center gap-2 ">
+                    <div>
 
-                <button
-                    onClick={sendMessage}
-                    className="px-4 h-10 bg-blue-600 text-white rounded-lg"
-                >
-                    {editingId ? "Update" : "Send"}
-                </button>
+                        <MdOutlineEmojiEmotions onClick={() => setShowEmoji(!showEmoji)} className="text-2xl" />
+                    </div>
+
+                    <input
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        placeholder="Type a message..."
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                sendMessage();
+                            }
+                        }}
+                        className="flex-1 p-2 border rounded-lg"
+                    />
+                    <button className="border p-2 rounded-sm flex justify-center items-center">
+                        <label
+                            htmlFor="fileInput"
+                            className="cursor-pointer"
+                        >
+                            <FaFile className="text-xl md:text-2xl text-violet-700" />
+                        </label>
+
+                    </button>
+                    <input
+                        type="file"
+                        id="fileInput"
+                        className="hidden"
+                        accept="image/*,video/*,audio/*,application/pdf,doc,.docx,xls,.xlsx"
+                        onChange={handleFileChange}
+                    />
+
+                    <button
+                        onClick={sendMessage}
+                        className="px-4 h-10 bg-blue-600 text-white rounded-lg"
+                    >
+                        {editingId ? "Update" : sending ? <FiLoader /> : <IoSend />}
+                    </button>
+                </div>
+                <div>
+                    <EmojiPicker onEmojiClick={(emoji) => setText((prev) => prev + emoji.emoji)} skinTonesDisabled lazyLoadEmojis={false} searchDisabled open={showEmoji} />
+                </div>
             </div>
         </div>
     );

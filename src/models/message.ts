@@ -1,20 +1,23 @@
 import mongoose, { Schema,Document } from "mongoose";
 
-export interface IMsg extends Document{
-    content:string;
-    sender:mongoose.Types.ObjectId;
-    reciver:mongoose.Types.ObjectId;
-    isDelete:boolean;
-    isSeen:boolean;
+export interface IMsg extends Document {
+  content: string;
+  sender: mongoose.Types.ObjectId;
+  reciver: mongoose.Types.ObjectId;
+  isDelete: boolean;
+  isSeen: boolean;
+  file: {
+    type:string ,
+      url: string,
+      name: string,
+      size: number,
+      fileType: string,
+  };
 }
-
 const msgSchema:Schema = new mongoose.Schema<IMsg>(
   {
     content: {
       type: String,
-      required: [true, "Content is required"],
-      trim: true,
-      minlength: [1, "Content must be at least 1 character long"],
     },
     sender: {
       type: mongoose.Schema.Types.ObjectId,
@@ -33,6 +36,13 @@ const msgSchema:Schema = new mongoose.Schema<IMsg>(
     isSeen:{
       type:Boolean,
       default:false
+    },
+    file: {
+      type: {type:String},
+      url: {type:String},
+      name: {type:String},
+      size: {type:Number},
+      fileType: {type:String},
     }
   },
   { timestamps: true }
